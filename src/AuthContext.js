@@ -4,23 +4,21 @@ import React, { createContext, useState, useContext } from 'react';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loggedInUsername, setLoggedInUsername] = useState("");
+  const storedUsername = localStorage.getItem("loggedInUsername");
+  const [loggedInUsername, setLoggedInUsername] = useState(storedUsername || "");
 
   const login = (username) => {
-    setIsLoggedIn(true);
     setLoggedInUsername(username);
-    // Here, add your logic to handle login
+    localStorage.setItem("loggedInUsername", username); // Store username in localStorage
   };
 
   const logout = () => {
-    setIsLoggedIn(false);
     setLoggedInUsername("");
-    // Here, add your logic to handle logout
+    localStorage.removeItem("loggedInUsername"); // Remove username from localStorage
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, loggedInUsername, login, logout }}>
+    <AuthContext.Provider value={{ loggedInUsername, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

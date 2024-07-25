@@ -1,44 +1,89 @@
 import React, { useState } from 'react';
-import { createExcusalRequest } from '../FirebaseConfig';
+import { createExcusalRequest, uploadFile } from '../firebase';
 import { useAuth } from '../AuthContext';
 
 function CreateExcusalForm() {
-    const { isLoggedIn, loggedInUsername } = useAuth();
+    const { loggedInUsername } = useAuth();
 
-    const [excusalName, setExcusalName] = useState('');
     const [event, setEvent] = useState('');
-    const [date, setDate] = useState('');
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
     const [reason, setReason] = useState('');
     const [reasonDetails, setReasonDetails] = useState('');
     const [comments, setComments] = useState('');
+    const [file, setFile] = useState(null); // State to hold the uploaded file
 
-    const handleSubmit = (e) => {
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log(loggedInUsername, excusalName, event, reason, reasonDetails, comments);
-        createExcusalRequest(loggedInUsername, excusalName, event, date, reason, reasonDetails, comments);
+
+        if (!event || !fromDate || !toDate || !reason) {
+            window.alert("Please fill out all the fields!");
+            return;
+        }
+        const isConfirmed = window.confirm("Are you sure you want to submit this excusal?");
+        if (!isConfirmed) {
+            // If not confirmed, exit the function early
+            return;
+        }
     
-        setExcusalName('');
+        // Function to format date into yyyy-mm-dd
+        const formatDate = (date) => {
+            let d = new Date(date),
+                month = '' + (d.getMonth() + 1),
+                day = '' + d.getDate(),
+                year = d.getFullYear();
+    
+            if (month.length < 2) 
+                month = '0' + month;
+            if (day.length < 2) 
+                day = '0' + day;
+    
+            return [year, month, day].join('-');
+        };
+    
+        // Generate a unique excusal name
+        const excusalName = `${loggedInUsername}-${event}-${fromDate}`;
+        const todayDate = formatDate(new Date()); // Use the formatDate function to get today's date in yyyy-mm-dd format
+    
+        // Check if a file has been selected
+        if (file) {
+            const filePath = `excusals/${loggedInUsername}/${new Date().getTime()}-${file.name}`;
+            try {
+                // Upload the file and get the download URL
+                const downloadURL = await uploadFile(file, filePath);
+    
+                // Now include the downloadURL in your excusal request data
+                await createExcusalRequest(loggedInUsername, excusalName, event, fromDate, toDate, reason, reasonDetails, comments, downloadURL, todayDate);
+            } catch (error) {
+                console.error("Error processing the excusal form:", error);
+            }
+        } else {
+            // Handle the case where no file is selected, maybe set an error message
+            await createExcusalRequest(loggedInUsername, excusalName, event, fromDate, toDate, reason, reasonDetails, comments, '', todayDate);
+        }
+    
+        // Reset form fields here
         setEvent('');
-        setDate('');
+        setFromDate('');
+        setToDate('');
         setReason('');
         setReasonDetails('');
         setComments('');
+        setFile(null);
+    };
+    
+
+
+    const handleFileChange = (e) => {
+        setFile(e.target.files[0]); // Set the file to the first file if multiple files are selected
     };
 
     return (
         <div>
             <h2>Create Excusal</h2>
-            <form onSubmit={handleSubmit}>
-                <div>
-                    <label htmlFor="event">Unique Excusal Name:</label>
-                    <input 
-                        type="text" 
-                        id="excusalName" 
-                        value={excusalName} 
-                        onChange={(e) => setExcusalName(e.target.value)} 
-                    />
-                </div>
-                <div>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '40vw' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <label htmlFor="event">Event to be Excused:</label>
                     <input 
                         type="text" 
@@ -47,18 +92,28 @@ function CreateExcusalForm() {
                         onChange={(e) => setEvent(e.target.value)} 
                     />
                 </div>
-
-                <div>
-                    <label htmlFor="date">Date:</label>
+    
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label htmlFor="fromDate">Date From:</label>
                     <input 
                         type="date" 
-                        id="date" 
-                        value={date} 
-                        onChange={(e) => setDate(e.target.value)} 
+                        id="fromDate" 
+                        value={fromDate} 
+                        onChange={(e) => setFromDate(e.target.value)} 
                     />
                 </div>
-
-                <div>
+    
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label htmlFor="toDate">Date To:</label>
+                    <input 
+                        type="date" 
+                        id="toDate" 
+                        value={toDate} 
+                        onChange={(e) => setToDate(e.target.value)} 
+                    />
+                </div>
+    
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                     <label>Reason for Excusal:</label>
                     <div>
                         <input 
@@ -115,20 +170,31 @@ function CreateExcusalForm() {
                         )}
                     </div>
                 </div>
-
-                <div>
-                    <label htmlFor="comments">Comments:</label>
+    
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label htmlFor="comments" style={{ alignSelf: 'flex-start' }}>Comments:</label>
                     <textarea 
                         id="comments" 
                         value={comments} 
                         onChange={(e) => setComments(e.target.value)} 
+                        style={{ width: '100%', height: '100px' }}
                     />
                 </div>
-
-                <button type="submit">Submit Excusal</button>
+    
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <label htmlFor="fileUpload">Upload File (PDF, JPG, JPEG, or PNG only):</label>
+                    <input 
+                        type="file" 
+                        id="fileUpload" 
+                        accept="application/pdf,image/png,image/jpeg,image/jpg" 
+                        onChange={handleFileChange} 
+                    />
+                </div>
+    
+                <button style={{width: 130, height: 40}} type="submit">Submit Excusal</button>
             </form>
         </div>
-    );
+    );    
 }
 
 export default CreateExcusalForm;

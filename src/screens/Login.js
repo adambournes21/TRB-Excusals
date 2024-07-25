@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
-import { checkCredentials } from '../FirebaseConfig';
+import { checkCredentials } from '../firebase';
 import { useHistory } from 'react-router-dom';
 
 
 function LoginPage() {
-  const { isLoggedIn, loggedInUsername, login } = useAuth();
+  const { loggedInUsername, login } = useAuth();
   const history = useHistory();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+
+  useEffect(() => {
+    if (loggedInUsername) {
+      history.push('/home');
+    }
+  }, [loggedInUsername, history]);
 
   const handleUsernameChange = (e) => {
     setUsername(e.target.value);
@@ -25,11 +31,7 @@ function LoginPage() {
       if (res) {
         login(username)
         history.push('/home');
-        console.log('Successful Login', username, password);
-      } else {
-        console.log('Failed Login', username, password);
       }
-
     })
   };
 

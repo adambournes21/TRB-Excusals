@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
-import { fetchOwnExcusals } from '../FirebaseConfig';
+import { fetchOwnExcusals } from '../firebase';
 import { useHistory } from 'react-router-dom';
 
 function OwnExcusalList() {
     const history = useHistory();
-    const { isLoggedIn, loggedInUsername } = useAuth();
+    const { loggedInUsername } = useAuth();
     const [excusals, setExcusals] = useState([]);
 
     const handleSeeMoreClick = (id) => {

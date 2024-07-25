@@ -6,10 +6,10 @@ import { ModalProvider } from './ModalContext';
 // Import your page components
 import HomePage from './screens/Home';
 import LoginPage from './screens/Login';
-import ApprovedPage from './screens/Approved';
+import AllPage from './screens/AllExcusals';
 import ViewPage from './screens/View';
 import ReviewPage from './screens/Review';
-import EditUsersPage from './screens/EditUsers';
+import AdminPage from './screens/Admin';
 
 function App() {
   return (
@@ -18,13 +18,13 @@ function App() {
       <Router>
         <div>
           <Switch>
-            <Route exact path="/" component={LoginPage} />
+            <Route exact path="/" component={HomePage} />
             <Route exact path="/home" component={HomePage} />
             <Route exact path="/login" component={LoginPage} />
-            <Route exact path="/approved" component={ApprovedPage} />
+            <Route exact path="/all" component={AllPage} />
             <Route exact path="/view/:docId" component={ViewPage} />
             <Route path="/review/:docId" component={ReviewPage} />
-            <Route exact path="/edit-users" component={EditUsersPage} />
+            <Route exact path="/admin" component={AdminPage} />
           </Switch>
         </div>
       </Router>
