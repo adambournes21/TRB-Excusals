@@ -9,7 +9,8 @@ This project was made to simplify the pdf excusal process in various battalions.
 - create firebase account
 - create firebase project for this
 - add a file in src titled "FirebaseConfig" and add the project key to this file
-3. to host this one can easily use firebase as well (look up how to do this)
+3. run command "npm install" in root directory
+4. to host this one can easily use firebase as well (look up how to do this)
 
 # Running this project
 
