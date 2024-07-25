@@ -1,10 +1,17 @@
-# Getting Started with Create React App
+# Excusal System for army ROTC battalions
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project was made to simplify the pdf excusal process in various battalions. 
 
-## Available Scripts
+# Setup Instructions
 
-In the project directory, you can run:
+1. Clone this repo
+2. Add Firebase Account Key
+- create firebase account
+- create firebase project for this
+- add a file in src titled "FirebaseConfig" and add the project key to this file
+3. to host this one can easily use firebase as well (look up how to do this)
+
+# Running this project
 
 ### `npm start`
 
@@ -21,5 +28,3 @@ It correctly bundles React in production mode and optimizes the build for the be
 
 The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
