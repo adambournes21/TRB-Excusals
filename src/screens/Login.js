@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { checkCredentials } from '../firebase';
 import { useHistory } from 'react-router-dom';
-
+import { Box, Button, FormControl, FormLabel, Input, Heading, VStack } from '@chakra-ui/react';
 
 function LoginPage() {
   const { loggedInUsername, login } = useAuth();
@@ -29,37 +29,55 @@ function LoginPage() {
     e.preventDefault();
     checkCredentials(username, password).then((res) => {
       if (res) {
-        login(username)
+        login(username);
         history.push('/home');
       }
-    })
+    });
   };
 
   return (
-    <div>
-      <h2>Login Page</h2>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="username">Username:</label>
-          <input
-            type="text"
-            id="username"
-            value={username}
-            onChange={handleUsernameChange}
-          />
-        </div>
-        <div>
-          <label htmlFor="password">Password:</label>
-          <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={handlePasswordChange}
-          />
-        </div>
-        <button type="submit">Log In</button>
-      </form>
-    </div>
+    <Box
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
+      height="100vh"
+      bg="#f5f5f5"
+      p={6}
+    >
+      <Box bg="white" p={8} boxShadow="md" borderRadius="md" width="100%" maxWidth="400px">
+        <Heading as="h2" size="lg" textAlign="center" mb={6}>
+          Login Page
+        </Heading>
+        <form onSubmit={handleSubmit}>
+          <VStack spacing={4}>
+            <FormControl id="username">
+              <FormLabel>Username:</FormLabel>
+              <Input
+                type="text"
+                value={username}
+                onChange={handleUsernameChange}
+                placeholder="Enter your username"
+              />
+            </FormControl>
+
+            <FormControl id="password">
+              <FormLabel>Password:</FormLabel>
+              <Input
+                type="password"
+                value={password}
+                onChange={handlePasswordChange}
+                placeholder="Enter your password"
+              />
+            </FormControl>
+
+            <Button type="submit" colorScheme="blue" width="100%">
+              Log In
+            </Button>
+          </VStack>
+        </form>
+      </Box>
+    </Box>
   );
 }
 

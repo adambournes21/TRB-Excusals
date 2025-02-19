@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, query, collection, where, getDocs, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, query, collection, where, getDocs, deleteDoc, onSnapshot } from "firebase/firestore";
 // import { getAnalytics } from "firebase/analytics";
 import { firebaseConfig } from './FirebaseConfig.js';
 
@@ -55,15 +55,21 @@ export async function checkCredentials(username, password) {
             return;
         }
 
+        console.log("coc: ", cocUsername);
+
         let sentToString = cocUsername; // Use let for variables that may change
         let status = "submitted";
-        if (cocUsername === loggedInUsername) {
-            sentToString = ""; // Reassignment is allowed with let
-            status = "approved"
+
+        // Sanitize excusalName to ensure it is a valid document ID
+        const sanitizedExcusalName = excusalName.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+
+        // Ensure that the document ID is valid
+        if (!sanitizedExcusalName || sanitizedExcusalName.length === 0) {
+            throw new Error("Invalid excusalName. Cannot create a document with an empty or invalid ID.");
         }
 
-        // Create or overwrite a document in the 'excusals' collection
-        const excusalRef = doc(db, 'excusals', excusalName);
+        // Create or overwrite a document in the 'excusals' collection with the sanitized name
+        const excusalRef = doc(db, 'excusals', sanitizedExcusalName);
         await setDoc(excusalRef, {
             sentBy: loggedInUsername,
             event: event,
@@ -73,9 +79,9 @@ export async function checkCredentials(username, password) {
             reasonDetails: reasonDetails,
             comments: comments,
             status: status,
-            sentTo: sentToString, // Directly set the COC person as the initial recipient
+            sentTo: sentToString,
             reviews: [],
-            fileURL: fileDownloadURL, // Store the file's download URL
+            fileURL: fileDownloadURL,
             dateSubmitted: dateSubmitted
         });
 
@@ -86,6 +92,16 @@ export async function checkCredentials(username, password) {
     }
 }
 
+export const deleteExcusal = async (excusalId) => {
+    try {
+        const excusalRef = doc(db, "excusals", excusalId);
+        await deleteDoc(excusalRef);
+        console.log("Excusal deleted successfully:", excusalId);
+    } catch (error) {
+        console.error("Error deleting excusal:", error);
+        throw error;
+    }
+};
 
   export const fetchOwnExcusals = async (loggedInUsername) => {
     const db = getFirestore();
@@ -151,6 +167,7 @@ export async function sendExcusalUp(loggedInUsername, excusalId) {
         
         if (userDoc.exists()) {
             const cocUsername = userDoc.data().coc;
+            console.log("cocUsername: ", cocUsername);
             const excusalRef = doc(db, 'excusals', excusalId);
             
             if (cocUsername === loggedInUsername) {
@@ -229,18 +246,13 @@ export async function rejectExcusal(loggedInUsername, excusalId) {
 }
 
 
-export const fetchAllExcusals = async (status = '', dateFrom = '', dateTo = '', sentBy = '') => {
+export const fetchAllExcusals = async (status = '', dateFrom = '', dateTo = '') => {
     try {
         let q = query(collection(db, "excusals"));
 
         // Apply status filter
         if (status) {
             q = query(q, where("status", "==", status));
-        }
-
-        // Apply sentBy filter
-        if (sentBy) {
-            q = query(q, where("sentBy", ">=", sentBy), where("sentBy", "<=", sentBy + '\uf8ff'));
         }
 
         const querySnapshot = await getDocs(q);
@@ -301,8 +313,23 @@ export const fetchUserNames = async () => {
     }
 };
 
+    export const listenToUsers = (callback) => {
+        const usersRef = collection(db, 'users');
+    
+        // onSnapshot is a real-time listener for Firestore
+        const unsubscribe = onSnapshot(usersRef, (snapshot) => {
+        const users = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
+        callback(users); // Call the callback function with the updated users list
+        });
+    
+        // Return the unsubscribe function to stop listening when no longer needed
+        return unsubscribe;
+    };
 
-    export const createUser = async ({ company, platoon, squad, username, password, email }) => {
+    export const createUser = async ({ company, platoon, squad, username, password, email, coc }) => {
         try {
             const userRef = doc(db, "users", username);
 
@@ -313,13 +340,13 @@ export const fetchUserNames = async () => {
                 username,
                 password,
                 email,
+                coc,
             });
             console.log("Document written with ID: ", userRef.id);
         } catch (e) {
             console.error("Error adding document: ", e);
         }
     };
-
 
     // Function to fetch user information
     export const fetchUserInfo = async (userId) => {
@@ -332,11 +359,10 @@ export const fetchUserNames = async () => {
         }
     };
     
-    // Function to edit user information
-    export const editUserInfo = async (userId, { company, platoon, squad, username, password, email }) => {
+    export const editUserInfo = async (userId, { company, platoon, squad, username, password, email, coc }) => {
         const userRef = doc(db, "users", userId);
         try {
-            await updateDoc(userRef, { company, platoon, squad, username, password, email });
+            await updateDoc(userRef, { company, platoon, squad, username, password, email, coc });
             console.log("User information updated successfully");
         } catch (error) {
             console.error("Error updating user:", error);
@@ -369,132 +395,96 @@ export const fetchUserNames = async () => {
         }
     };
 
-    // Function to fetch user ranks
-export const fetchUserRanks = async () => {
-    const docRef = doc(db, "ranks", "a");
+// Function to fetch user ranks for the selected company
+export const fetchUserRanks = async (selectedCompany) => {
+    const docRef = doc(db, "ranks", selectedCompany); // Adjust this based on your Firestore structure
     try {
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            return docSnap.data();
-        } else {
-            console.log("No such document!");
-            return null;
-        }
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data(); // Return data for the selected company
+      } else {
+        console.log("No such document for company: ", selectedCompany);
+        return null;
+      }
     } catch (error) {
-        console.error("Error fetching ranks:", error);
-        throw error;
+      console.error("Error fetching ranks:", error);
+      throw error;
     }
-};
+};  
 
-
-// Function to edit user ranks
-export const editUserRanks = async (updatedRanks) => {
-    const docRef = doc(db, "ranks", "a");
+// Function to edit user ranks for the selected company
+export const editUserRanks = async (company, updatedRanks) => {
+    const docRef = doc(db, "ranks", company); // Company-specific document (a, b, c, d)
     try {
         await updateDoc(docRef, updatedRanks);
-        console.log("Document successfully updated!");
+        console.log(`Ranks for company ${company} successfully updated!`);
     } catch (error) {
-        console.error("Error updating document: ", error);
+        console.error(`Error updating ranks for company ${company}: `, error);
         throw error;
     }
 };
 
-
-export const updateUserCocValues = async () => {
+export const updateUserCocValues = async (company) => {
     try {
-        // Fetch ranks
-        const ranksRef = doc(db, 'ranks', 'a');
+        // Fetch ranks for the selected company
+        const ranksRef = doc(db, 'ranks', company);
         const rankSnapshot = await getDoc(ranksRef);
         const ranks = rankSnapshot.data();
 
-        // Fetch all users
+        // Fetch all users in the selected company
         const usersRef = collection(db, 'users');
         const usersSnapshot = await getDocs(usersRef);
-        const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const users = usersSnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(user => user.company === company); // Filter users by company
 
-        // Assuming 'users' is an array of user objects and 'ranks' is an object containing rank identifiers as keys and user IDs as values
+        // Update chain of command for each user
         users.forEach(async (user) => {
             let newCoc = '';
+
+            // Determine the new coc based on user's role and platoon/squad assignment
             switch (user.platoon) {
                 case '1st':
                     switch (user.squad) {
-                        case '1st':
-                            newCoc = ranks._1sl1;
-                            break;
-                        case '2nd':
-                            newCoc = ranks._1sl2;
-                            break;
-                        case '3rd':
-                            newCoc = ranks._1sl3;
-                            break;
-                        case '4th':
-                            newCoc = ranks._1sl4;
-                            break;
-                        default:
-                            newCoc = ranks._1psg; // Default to platoon sergeant if no squad match
+                        case '1st': newCoc = ranks._1sl1; break;
+                        case '2nd': newCoc = ranks._1sl2; break;
+                        case '3rd': newCoc = ranks._1sl3; break;
+                        case '4th': newCoc = ranks._1sl4; break;
+                        default: newCoc = ranks._1psg; // Default to platoon sergeant
                     }
                     break;
                 case '2nd':
                     switch (user.squad) {
-                        case '1st':
-                            newCoc = ranks._2sl1;
-                            break;
-                        case '2nd':
-                            newCoc = ranks._2sl2;
-                            break;
-                        case '3rd':
-                            newCoc = ranks._2sl3;
-                            break;
-                        case '4th':
-                            newCoc = ranks._2sl4;
-                            break;
-                        default:
-                            newCoc = ranks._2psg; // Default to platoon sergeant if no squad match
+                        case '1st': newCoc = ranks._2sl1; break;
+                        case '2nd': newCoc = ranks._2sl2; break;
+                        case '3rd': newCoc = ranks._2sl3; break;
+                        case '4th': newCoc = ranks._2sl4; break;
+                        default: newCoc = ranks._2psg; // Default to platoon sergeant
                     }
                     break;
                 default:
-                    // Handle cases outside of 1st and 2nd platoons, if any
                     break;
             }
 
-            // Determine the new coc based on user's role and platoon/squad assignment
-            if (user.id === ranks._1sl1 || user.id === ranks._1sl2 || user.id === ranks._1sl3 || user.id === ranks._1sl4) {
-                newCoc = ranks._1psg;
-            } else if (user.id === ranks._2sl1 || user.id === ranks._2sl2 || user.id === ranks._2sl3 || user.id === ranks._2sl4) {
-                newCoc = ranks._2psg;
-            } else if (user.id === ranks._1psg) {
-                newCoc = ranks._1pl;
-            } else if (user.id === ranks._2psg) {
-                newCoc = ranks._2pl;
-            } else if (user.id === ranks._1pl || user.id === ranks._2pl) {
-                newCoc = ranks._1sgt;
-            } else if (user.id === ranks._1sgt) {
-                newCoc = ranks.cc;
-            } else if (user.id === ranks.cc) {
-                newCoc = ranks.pms;
-            } else if (user.id === ranks.pms) {
-                newCoc = ranks.pms; // PMS reports to themselves
-            }
-
-            // Update user coc in Firestore
+            // Assign the chain of command based on the rank and update the user
             if (newCoc) {
                 const userRef = doc(db, 'users', user.id);
-                await updateDoc(userRef, { coc: newCoc }).catch(error => console.error("Error updating user coc:", error));
+                await updateDoc(userRef, { coc: newCoc }).catch(error => console.error(`Error updating user ${user.id} coc:`, error));
             }
         });
 
-        console.log('All users coc values updated successfully.');
+        console.log(`All users' CoC values updated successfully for company ${company}.`);
     } catch (error) {
-        console.error('Error updating users coc values: ', error);
+        console.error(`Error updating users' CoC values for company ${company}: `, error);
         throw error;
     }
 };
 
 
-export const updateExcusalSentToValues = async (newRanks) => {
+export const updateExcusalSentToValues = async (company, newRanks) => {
     try {
-        // Fetch old ranks
-        const oldRanksRef = doc(db, 'ranks', 'a');
+        // Fetch old ranks for the selected company
+        const oldRanksRef = doc(db, 'ranks', company);
         const oldRanksSnap = await getDoc(oldRanksRef);
         const oldRanks = oldRanksSnap.data();
 
@@ -506,8 +496,6 @@ export const updateExcusalSentToValues = async (newRanks) => {
             const excusal = docSnap.data();
             let updatedSentTo = '';
 
-            console.log("oldRanks: ", oldRanks);
-            console.log("newRanks: ", newRanks);
             // Iterate over old ranks to find matches and update to new ranks
             Object.entries(oldRanks).forEach(([key, value]) => {
                 if (excusal.sentTo === value) { // Match found
@@ -521,8 +509,8 @@ export const updateExcusalSentToValues = async (newRanks) => {
             }
         });
 
-        console.log("All excusals' sentTo values updated successfully.");
+        console.log(`All excusals' sentTo values updated successfully for company ${company}.`);
     } catch (error) {
-        console.error("Error updating excusals' sentTo values:", error);
+        console.error(`Error updating excusals' sentTo values for company ${company}: `, error);
     }
 };

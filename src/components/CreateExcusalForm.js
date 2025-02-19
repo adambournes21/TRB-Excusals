@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
+import Confetti from 'react-confetti';  // Import Confetti component
 import { createExcusalRequest, uploadFile } from '../firebase';
 import { useAuth } from '../AuthContext';
+import {
+    Button, Input, Box, Textarea, Radio, RadioGroup, Stack, FormControl, FormLabel, Heading,
+    Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter, ModalBody, ModalCloseButton
+} from '@chakra-ui/react';
 
 function CreateExcusalForm() {
     const { loggedInUsername } = useAuth();
@@ -13,6 +18,8 @@ function CreateExcusalForm() {
     const [comments, setComments] = useState('');
     const [file, setFile] = useState(null); // State to hold the uploaded file
 
+    const [showConfetti, setShowConfetti] = useState(false); // State for confetti
+    const [isModalOpen, setIsModalOpen] = useState(false); // State for modal
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -22,179 +29,188 @@ function CreateExcusalForm() {
             return;
         }
         const isConfirmed = window.confirm("Are you sure you want to submit this excusal?");
-        if (!isConfirmed) {
-            // If not confirmed, exit the function early
-            return;
-        }
-    
-        // Function to format date into yyyy-mm-dd
-        const formatDate = (date) => {
-            let d = new Date(date),
-                month = '' + (d.getMonth() + 1),
-                day = '' + d.getDate(),
-                year = d.getFullYear();
-    
-            if (month.length < 2) 
-                month = '0' + month;
-            if (day.length < 2) 
-                day = '0' + day;
-    
-            return [year, month, day].join('-');
-        };
-    
-        // Generate a unique excusal name
-        const excusalName = `${loggedInUsername}-${event}-${fromDate}`;
-        const todayDate = formatDate(new Date()); // Use the formatDate function to get today's date in yyyy-mm-dd format
-    
-        // Check if a file has been selected
-        if (file) {
-            const filePath = `excusals/${loggedInUsername}/${new Date().getTime()}-${file.name}`;
-            try {
-                // Upload the file and get the download URL
-                const downloadURL = await uploadFile(file, filePath);
-    
-                // Now include the downloadURL in your excusal request data
-                await createExcusalRequest(loggedInUsername, excusalName, event, fromDate, toDate, reason, reasonDetails, comments, downloadURL, todayDate);
-            } catch (error) {
-                console.error("Error processing the excusal form:", error);
-            }
-        } else {
-            // Handle the case where no file is selected, maybe set an error message
-            await createExcusalRequest(loggedInUsername, excusalName, event, fromDate, toDate, reason, reasonDetails, comments, '', todayDate);
-        }
-    
-        // Reset form fields here
-        setEvent('');
-        setFromDate('');
-        setToDate('');
-        setReason('');
-        setReasonDetails('');
-        setComments('');
-        setFile(null);
-    };
-    
+        if (!isConfirmed) return; // If not confirmed, exit the function early
 
+        const excusalName = `${loggedInUsername}-${event}-${fromDate}`;
+        const todayDate = new Date().toISOString().split('T')[0]; // Format date as yyyy-mm-dd
+
+        try {
+            let downloadURL = '';
+            if (file) {
+                const filePath = `excusals/${loggedInUsername}/${new Date().getTime()}-${file.name}`;
+                downloadURL = await uploadFile(file, filePath);
+            }
+
+            await createExcusalRequest(
+                loggedInUsername, excusalName, event, fromDate, toDate, reason, reasonDetails, comments, downloadURL, todayDate
+            );
+
+            // Reset form fields
+            setEvent('');
+            setFromDate('');
+            setToDate('');
+            setReason('');
+            setReasonDetails('');
+            setComments('');
+            setFile(null);
+
+            // Show confetti and modal
+            setShowConfetti(true);
+            setIsModalOpen(true);
+
+            // Stop confetti after 5 seconds
+            setTimeout(() => setShowConfetti(false), 5000);
+
+        } catch (error) {
+            console.error("Error processing the excusal form:", error);
+        }
+    };
 
     const handleFileChange = (e) => {
         setFile(e.target.files[0]); // Set the file to the first file if multiple files are selected
     };
 
+    const buttonStyles = {
+        bg: "#EEEEEE",
+        color: "black",
+        border: "1px solid black",
+        transition: "border 0.1s ease-in-out",
+        _hover: {
+            borderWidth: "2px",
+            bg: "#DDDDDD"
+        }
+    };
+
     return (
-        <div>
-            <h2>Create Excusal</h2>
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '40vw' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <label htmlFor="event">Event to be Excused:</label>
-                    <input 
-                        type="text" 
-                        id="event" 
-                        value={event} 
-                        onChange={(e) => setEvent(e.target.value)} 
-                    />
-                </div>
-    
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <label htmlFor="fromDate">Date From:</label>
-                    <input 
-                        type="date" 
-                        id="fromDate" 
-                        value={fromDate} 
-                        onChange={(e) => setFromDate(e.target.value)} 
-                    />
-                </div>
-    
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <label htmlFor="toDate">Date To:</label>
-                    <input 
-                        type="date" 
-                        id="toDate" 
-                        value={toDate} 
-                        onChange={(e) => setToDate(e.target.value)} 
-                    />
-                </div>
-    
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <label>Reason for Excusal:</label>
-                    <div>
-                        <input 
-                            type="radio" 
-                            id="clinical" 
-                            name="reason" 
-                            value="Clinical" 
-                            onChange={(e) => setReason(e.target.value)} 
+        <>
+            {showConfetti && <Confetti />}
+
+            <Box maxWidth="600px" mx="auto" p="4" borderRadius="md" boxShadow="md" bg="white">
+                <Heading as="h2" size="lg" mb="6" textAlign="center">Create Excusal</Heading>
+                <form onSubmit={handleSubmit}>
+                    {/* Event */}
+                    <FormControl id="event" mb="4">
+                        <FormLabel>Event to be Excused:</FormLabel>
+                        <Input
+                            type="text"
+                            value={event}
+                            onChange={(e) => setEvent(e.target.value)}
+                            border="1px solid black"
                         />
-                        <label htmlFor="clinical">Clinical</label>
-                        {reason === 'Clinical' && (
-                            <input 
-                                type="text" 
-                                placeholder="Enter details" 
-                                value={reasonDetails} 
-                                onChange={(e) => setReasonDetails(e.target.value)} 
-                            />
-                        )}
-                    </div>
-                    <div>
-                        <input 
-                            type="radio" 
-                            id="school-obligation" 
-                            name="reason" 
-                            value="School Obligation" 
-                            onChange={(e) => setReason(e.target.value)} 
+                    </FormControl>
+
+                    {/* From Date */}
+                    <FormControl id="fromDate" mb="4">
+                        <FormLabel>Date From:</FormLabel>
+                        <Input
+                            type="date"
+                            value={fromDate}
+                            onChange={(e) => setFromDate(e.target.value)}
+                            border="1px solid black"
                         />
-                        <label htmlFor="school-obligation">School Obligation</label>
-                        {reason === 'School Obligation' && (
-                            <input 
-                                type="text" 
-                                placeholder="Enter details" 
-                                value={reasonDetails} 
-                                onChange={(e) => setReasonDetails(e.target.value)} 
-                            />
-                        )}
-                    </div>
-                    <div>
-                        <input 
-                            type="radio" 
-                            id="other" 
-                            name="reason" 
-                            value="Other" 
-                            onChange={(e) => setReason(e.target.value)} 
+                    </FormControl>
+
+                    {/* To Date */}
+                    <FormControl id="toDate" mb="4">
+                        <FormLabel>Date To:</FormLabel>
+                        <Input
+                            type="date"
+                            value={toDate}
+                            onChange={(e) => setToDate(e.target.value)}
+                            border="1px solid black"
                         />
-                        <label htmlFor="other">Other</label>
-                        {reason === 'Other' && (
-                            <input 
-                                type="text" 
-                                placeholder="Enter details" 
-                                value={reasonDetails} 
-                                onChange={(e) => setReasonDetails(e.target.value)} 
-                            />
-                        )}
-                    </div>
-                </div>
-    
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <label htmlFor="comments" style={{ alignSelf: 'flex-start' }}>Comments:</label>
-                    <textarea 
-                        id="comments" 
-                        value={comments} 
-                        onChange={(e) => setComments(e.target.value)} 
-                        style={{ width: '100%', height: '100px' }}
-                    />
-                </div>
-    
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <label htmlFor="fileUpload">Upload File (PDF, JPG, JPEG, or PNG only):</label>
-                    <input 
-                        type="file" 
-                        id="fileUpload" 
-                        accept="application/pdf,image/png,image/jpeg,image/jpg" 
-                        onChange={handleFileChange} 
-                    />
-                </div>
-    
-                <button style={{width: 130, height: 40}} type="submit">Submit Excusal</button>
-            </form>
-        </div>
-    );    
+                    </FormControl>
+
+                    {/* Reason */}
+                    <FormControl as="fieldset" mb="4">
+                        <FormLabel as="legend">Reason for Excusal:</FormLabel>
+                        <RadioGroup onChange={setReason} value={reason}>
+                            <Stack direction="column">
+                                <Radio value="Clinical">Clinical</Radio>
+                                {reason === 'Clinical' && (
+                                    <Input
+                                        type="text"
+                                        placeholder="Enter details"
+                                        value={reasonDetails}
+                                        onChange={(e) => setReasonDetails(e.target.value)}
+                                        border="1px solid black"
+                                        mt="2"
+                                    />
+                                )}
+
+                                <Radio value="School Obligation">School Obligation</Radio>
+                                {reason === 'School Obligation' && (
+                                    <Input
+                                        type="text"
+                                        placeholder="Enter details"
+                                        value={reasonDetails}
+                                        onChange={(e) => setReasonDetails(e.target.value)}
+                                        border="1px solid black"
+                                        mt="2"
+                                    />
+                                )}
+
+                                <Radio value="Other">Other</Radio>
+                                {reason === 'Other' && (
+                                    <Input
+                                        type="text"
+                                        placeholder="Enter details"
+                                        value={reasonDetails}
+                                        onChange={(e) => setReasonDetails(e.target.value)}
+                                        border="1px solid black"
+                                        mt="2"
+                                    />
+                                )}
+                            </Stack>
+                        </RadioGroup>
+                    </FormControl>
+
+                    {/* Comments */}
+                    <FormControl id="comments" mb="4">
+                        <FormLabel>Comments:</FormLabel>
+                        <Textarea
+                            value={comments}
+                            onChange={(e) => setComments(e.target.value)}
+                            border="1px solid black"
+                        />
+                    </FormControl>
+
+                    {/* File Upload */}
+                    <FormControl id="fileUpload" mb="4">
+                        <FormLabel>Upload File (PDF, JPG, JPEG, or PNG only):</FormLabel>
+                        <Input
+                            type="file"
+                            accept="application/pdf,image/png,image/jpeg,image/jpg"
+                            onChange={handleFileChange}
+                            border="0px solid black"
+                        />
+                    </FormControl>
+
+                    {/* Submit Button */}
+                    <Button {...buttonStyles} type="submit" width="full">
+                        Submit Excusal
+                    </Button>
+                </form>
+            </Box>
+
+            {/* Modal */}
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+                <ModalOverlay />
+                <ModalContent>
+                    <ModalHeader>Success</ModalHeader>
+                    <ModalCloseButton />
+                    <ModalBody>
+                        Excusal successfully submitted!
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button colorScheme="blue" mr={3} onClick={() => setIsModalOpen(false)}>
+                            Close
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
+        </>
+    );
 }
 
 export default CreateExcusalForm;
